@@ -5,19 +5,19 @@ import { ref, onValue, update } from 'firebase/database';
 import { generateDeck, shuffleDeck, distributeCards, validatePlay, getNextPlayer } from '../gameLogic';
 
 export const CARD_NAMES = {
-  1: 'Dalmuti',
-  2: 'Archbishop',
-  3: 'Earl Marshal',
-  4: 'Baroness',
-  5: 'Abbess',
-  6: 'Knight',
-  7: 'Seamstress',
-  8: 'Mason',
-  9: 'Cook',
-  10: 'Shepherdess',
-  11: 'Stonecutter',
-  12: 'Peasant',
-  13: 'Jester'
+  1: '달무티 (Dalmuti)',
+  2: '대주교 (Erzbischof)',
+  3: '시종장 (Hofmarschall)',
+  4: '남작부인 (Baronin)',
+  5: '수녀원장 (Äbtissin)',
+  6: '기사 (Ritter)',
+  7: '재봉사 (Näherin)',
+  8: '석공 (Steinmetz)',
+  9: '요리사 (Köchin)',
+  10: '양치기 (Schafhirtin)',
+  11: '광부 (Bergmann)',
+  12: '농노 (Tagelöhner)',
+  13: '어릿광대 (Narr)'
 };
 
 export default function GameBoard({ roomCode, nickname, onLeave }) {
@@ -284,6 +284,30 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     setSelectedCards([]);
   };
 
+  // UI 편의성 고도화 상태 및 파생 변수 계산
+  const selectedValuesForValidation = selectedCards.map(idx => myHand[idx]);
+  const currentValidation = validatePlay(selectedValuesForValidation, centerCards);
+  const isSelectionValid = currentValidation.valid && selectedValuesForValidation.length > 0;
+  const hasSelectedNormalCard = selectedValuesForValidation.some(num => num !== 13);
+  
+  const validationMessage = selectedValuesForValidation.length === 0 
+    ? '제출할 카드를 선택해주세요' 
+    : isSelectionValid 
+      ? `선택된 조합: ${currentValidation.rank}계급 ${currentValidation.count}장` 
+      : `불가: ${currentValidation.reason}`;
+
+  const getIsCardDimmed = (num) => {
+    if (isFinished || !isMyTurn || roomData.status !== 'playing') return false;
+    if (!centerCards) return false;
+    if (num === 13) return false; // 조커는 어두워지지 않음
+    return num >= centerCards.rank; // 낼 수 없는 숫자(계급)면 딤(Dim) 처리
+  };
+
+  const isCardJesterGlow = (num) => {
+    // 13(조커)이고, 무언가 일반 카드를 선택한 상태라면 반짝임
+    return num === 13 && hasSelectedNormalCard && roomData.status === 'playing';
+  };
+
   // 상대방 플레이어 배치 계산 (U자형 Grid 레이아웃)
   const orderedPlayers = roomData.ranks || Object.keys(players);
   const myIndex = orderedPlayers.indexOf(nickname);
@@ -427,17 +451,27 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               )}
               
               <div className="hand-cards" style={{ marginTop: '2rem' }}>
-                {myHand.map((num, idx) => (
-                  <div key={idx} className="hand-card-wrapper">
-                    <Card 
-                      number={num} 
-                      name={CARD_NAMES[num]} 
-                      isSelected={selectedCards.includes(idx)}
-                      onClick={() => handleCardClick(idx)}
-                      isPlayable={(!roomData.taxState?.dalmutiCards && isDalmuti) || (!roomData.taxState?.nobleCards && isNoble)}
-                    />
-                  </div>
-                ))}
+                {myHand.map((num, idx) => {
+                  const isSameAsPrev = idx > 0 && myHand[idx-1] === num;
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`hand-card-wrapper ${getIsCardDimmed(num) ? 'dimmed' : ''} ${isCardJesterGlow(num) ? 'jester-glow' : ''}`}
+                      style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
+                    >
+                      <Card 
+                        number={num} 
+                        name={CARD_NAMES[num]} 
+                        isSelected={selectedCards.includes(idx)}
+                        onClick={() => {
+                          if (getIsCardDimmed(num)) return; // 낼 수 없는 카드 클릭 방지
+                          handleCardClick(idx);
+                        }}
+                        isPlayable={(!roomData.taxState?.dalmutiCards && isDalmuti) || (!roomData.taxState?.nobleCards && isNoble)}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
@@ -477,25 +511,44 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
             <div className="turn-indicator" style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-color)' : 'var(--text-muted)' }}>
               {isFinished ? '🎉 모든 카드를 털었습니다! 구경 중...' : (isMyTurn ? '👉 내 턴입니다!' : `⏳ ${currentTurnPlayer}의 턴을 기다리는 중...`)}
             </div>
+            
+            <div className="validation-message" style={{ height: '20px', marginBottom: '0.5rem', color: isSelectionValid ? 'var(--accent-color)' : 'var(--danger-color)', fontSize: '0.9rem', fontWeight: 'bold' }}>
+              {isMyTurn && !isFinished ? validationMessage : ''}
+            </div>
+
             <div className="hand-actions">
-              <button className="btn" disabled={!isMyTurn || selectedCards.length === 0 || isFinished} onClick={playCards}>카드 내기</button>
+              <button 
+                className="btn" 
+                disabled={!isMyTurn || !isSelectionValid || isFinished} 
+                onClick={playCards}
+              >
+                카드 내기
+              </button>
               <button className="btn btn-secondary" disabled={!isMyTurn || (!centerCards) || isFinished} onClick={passTurn}>패스 (Pass)</button>
             </div>
             <div className="hand-cards">
-              {myHand.map((num, idx) => (
-                <div 
-                  key={idx} 
-                  className="hand-card-wrapper" 
-                >
-                  <Card 
-                    number={num} 
-                    name={CARD_NAMES[num]} 
-                    isSelected={selectedCards.includes(idx)}
-                    onClick={() => handleCardClick(idx)}
-                    isPlayable={!isFinished}
-                  />
-                </div>
-              ))}
+              {myHand.map((num, idx) => {
+                const isSameAsPrev = idx > 0 && myHand[idx-1] === num;
+                const isDimmed = getIsCardDimmed(num);
+                return (
+                  <div 
+                    key={idx} 
+                    className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''} ${isCardJesterGlow(num) ? 'jester-glow' : ''}`} 
+                    style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
+                  >
+                    <Card 
+                      number={num} 
+                      name={CARD_NAMES[num]} 
+                      isSelected={selectedCards.includes(idx)}
+                      onClick={() => {
+                        if (isDimmed) return;
+                        handleCardClick(idx);
+                      }}
+                      isPlayable={!isFinished}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
