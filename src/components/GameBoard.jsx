@@ -36,11 +36,106 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     return () => unsubscribe();
   }, [roomCode, onLeave]);
 
+  // 세금 교환 및 혁명 처리 (방장만 계산하여 업데이트)
+  useEffect(() => {
+    if (roomData?.status === 'taxing' && roomData.players && roomData.players[nickname]?.isHost) {
+      const taxState = roomData.taxState;
+      const ranks = roomData.ranks;
+      
+      if (!ranks || ranks.length < 4) {
+        // 인원이 적어 세금 규칙을 적용할 수 없는 경우 바로 시작
+        update(ref(db, `rooms/${roomCode}`), {
+          status: 'playing',
+          currentTurn: ranks ? ranks[0] : Object.keys(roomData.players)[0],
+          taxState: null
+        });
+        return;
+      }
+
+      if (taxState?.revolution) {
+        // 혁명이 일어났으면 3초 뒤에 바로 플레이 시작
+        if (!taxState.processedRevolution) {
+           update(ref(db, `rooms/${roomCode}/taxState/processedRevolution`), true);
+           setTimeout(() => {
+             let newRanks = [...ranks];
+             if (taxState.revolution === 'greater') {
+               newRanks.reverse(); // 대혁명: 계급 뒤집기
+             }
+             update(ref(db, `rooms/${roomCode}`), {
+               status: 'playing',
+               currentTurn: newRanks[0],
+               ranks: newRanks,
+               taxState: null
+             });
+           }, 4000);
+        }
+        return;
+      }
+
+      const dalmutiReady = taxState?.dalmutiCards !== undefined;
+      const nobleReady = taxState?.nobleCards !== undefined;
+      
+      if (dalmutiReady && nobleReady) {
+        // 세금 교환 실행
+        const dalmutiName = ranks[0];
+        const nobleName = ranks[1];
+        const lesserPeasantName = ranks[ranks.length - 2];
+        const peasantName = ranks[ranks.length - 1];
+        
+        const dalmutiHand = [...roomData.players[dalmutiName].hand];
+        const nobleHand = [...roomData.players[nobleName].hand];
+        const lesserPeasantHand = [...roomData.players[lesserPeasantName].hand];
+        const peasantHand = [...roomData.players[peasantName].hand];
+        
+        // 왕/귀족이 고른 카드 빼기
+        taxState.dalmutiCards.forEach(c => {
+           const idx = dalmutiHand.indexOf(c);
+           if (idx > -1) dalmutiHand.splice(idx, 1);
+        });
+        taxState.nobleCards.forEach(c => {
+           const idx = nobleHand.indexOf(c);
+           if (idx > -1) nobleHand.splice(idx, 1);
+        });
+        
+        // 노예들의 가장 좋은 카드(숫자가 낮은 것) 뽑기
+        peasantHand.sort((a,b) => a-b);
+        const pBest = peasantHand.splice(0, 2);
+        
+        lesserPeasantHand.sort((a,b) => a-b);
+        const lpBest = lesserPeasantHand.splice(0, 1);
+        
+        // 카드 교환
+        dalmutiHand.push(...pBest);
+        dalmutiHand.sort((a,b) => a-b);
+        
+        nobleHand.push(...lpBest);
+        nobleHand.sort((a,b) => a-b);
+        
+        peasantHand.push(...taxState.dalmutiCards);
+        peasantHand.sort((a,b) => a-b);
+        
+        lesserPeasantHand.push(...taxState.nobleCards);
+        lesserPeasantHand.sort((a,b) => a-b);
+        
+        update(ref(db, `rooms/${roomCode}`), {
+          status: 'playing',
+          currentTurn: ranks[0],
+          taxState: null,
+          [`players/${dalmutiName}/hand`]: dalmutiHand,
+          [`players/${nobleName}/hand`]: nobleHand,
+          [`players/${lesserPeasantName}/hand`]: lesserPeasantHand,
+          [`players/${peasantName}/hand`]: peasantHand,
+        });
+      }
+    }
+  }, [roomData?.status, roomData?.taxState]); // Removed isHost from deps to avoid stale closures, it's checked inside
+
   if (!roomData) return <div className="lobby-container">Loading...</div>;
 
   const players = roomData.players || {};
   const me = players[nickname];
   const isHost = me?.isHost;
+  const playerCount = Object.keys(players).length;
 
   const toggleReady = () => {
     update(ref(db, `rooms/${roomCode}/players/${nickname}`), {
@@ -53,18 +148,28 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     const playerNames = Object.keys(players);
     const hands = distributeCards(deck, playerNames);
     
-    // 만약 이전 라운드의 결과(ranks)가 있다면 대농노부터 섞지 않고 시작할 수 있지만 
-    // 여기서는 가장 단순하게 무작위로 시작 플레이어를 정합니다.
-    const startPlayer = roomData.ranks ? roomData.ranks[0] : playerNames[Math.floor(Math.random() * playerNames.length)];
+    // 첫 판은 무작위, 그 다음부터는 세금 단계 진입
+    const isFirstGame = !roomData.ranks;
+    const startPlayer = isFirstGame ? playerNames[Math.floor(Math.random() * playerNames.length)] : null;
 
     const updates = {
-      status: 'playing',
-      currentTurn: startPlayer,
+      status: isFirstGame ? 'playing' : 'taxing',
       centerCards: null,
       lastPlayedBy: null,
       passedPlayers: [],
       finishedPlayers: []
     };
+    
+    if (isFirstGame) {
+      updates.currentTurn = startPlayer;
+    } else {
+      updates.taxState = {
+        dalmutiCards: null,
+        nobleCards: null,
+        revolution: false,
+        revolutionBy: null
+      };
+    }
     
     playerNames.forEach(name => {
       updates[`players/${name}/hand`] = hands[name];
@@ -81,6 +186,13 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   const centerCards = roomData.centerCards;
   const finishedPlayers = roomData.finishedPlayers || [];
   const isFinished = finishedPlayers.includes(nickname);
+
+  // 혁명 조건 검사 (어릿광대 2장)
+  const hasRevolution = myHand.filter(c => c === 13).length >= 2;
+  const myRankIndex = roomData.ranks ? roomData.ranks.indexOf(nickname) : -1;
+  const isDalmuti = myRankIndex === 0;
+  const isNoble = myRankIndex === 1;
+  const isPeasant = roomData.ranks && myRankIndex === roomData.ranks.length - 1;
 
   const handleCardClick = (idx) => {
     if (selectedCards.includes(idx)) {
@@ -140,11 +252,9 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     const newPassed = [...passed, nickname];
     let nextUpdates = { passedPlayers: newPassed };
     
-    // 나를 제외한 모든 액티브 플레이어가 패스한 경우
     if (newPassed.length >= activeCount - 1) {
       const lastPlayer = roomData.lastPlayedBy;
       let nextLead = lastPlayer;
-      // 마지막으로 낸 사람이 이미 게임을 끝냈다면, 그 다음 사람이 선을 잡음
       if (finishedPlayers.includes(lastPlayer)) {
          nextLead = getNextPlayer(lastPlayer, playerNames, [], finishedPlayers);
       }
@@ -160,6 +270,28 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     setSelectedCards([]);
   };
 
+  const declareRevolution = () => {
+    update(ref(db, `rooms/${roomCode}/taxState`), {
+      revolution: isPeasant ? 'greater' : true,
+      revolutionBy: nickname
+    });
+  };
+
+  const giveTax = () => {
+    if (isDalmuti && selectedCards.length !== 2) {
+      alert('농노에게 줄 카드 2장을 선택해주세요.');
+      return;
+    }
+    if (isNoble && selectedCards.length !== 1) {
+      alert('소농노에게 줄 카드 1장을 선택해주세요.');
+      return;
+    }
+    const selectedValues = selectedCards.map(idx => myHand[idx]);
+    const target = isDalmuti ? 'dalmutiCards' : 'nobleCards';
+    update(ref(db, `rooms/${roomCode}/taxState/${target}`), selectedValues);
+    setSelectedCards([]);
+  };
+
   return (
     <div className="game-board">
       <div className="game-header">
@@ -171,7 +303,10 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
 
       {roomData.status === 'waiting' && (
         <div className="waiting-room">
-          <h3 style={{ marginBottom: '1rem', textAlign: 'center' }}>대기실</h3>
+          <h3 style={{ marginBottom: '1rem', textAlign: 'center' }}>대기실 (현재 {playerCount}명)</h3>
+          <p style={{textAlign: 'center', color: 'var(--text-muted)', marginBottom: '1rem'}}>
+            달무티는 4~8인이 즐기기에 가장 적합합니다. (최소 4인 필요)
+          </p>
           <div className="player-list">
             {Object.entries(players).map(([name, data]) => (
               <div key={name} className={`player-item ${data.isReady ? 'ready' : ''}`}>
@@ -189,13 +324,81 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               <button 
                 className="btn" 
                 onClick={startGame}
-                disabled={!allReady || Object.keys(players).length < 2}
-                style={{ marginTop: '1rem', opacity: (!allReady || Object.keys(players).length < 2) ? 0.5 : 1 }}
+                disabled={!allReady || playerCount < 4 || playerCount > 8}
+                style={{ marginTop: '1rem', opacity: (!allReady || playerCount < 4 || playerCount > 8) ? 0.5 : 1 }}
               >
-                게임 시작 (최소 2인)
+                게임 시작 (4~8인)
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {roomData.status === 'taxing' && (
+        <div className="waiting-room text-center">
+          {roomData.taxState?.revolution ? (
+            <div style={{ padding: '3rem 0', animation: 'fadeIn 0.5s ease' }}>
+              <h1 style={{ fontSize: '3rem', color: 'var(--danger-color)', marginBottom: '1rem' }}>
+                {roomData.taxState.revolution === 'greater' ? '대혁명 발동!!!' : '혁명 발동!'}
+              </h1>
+              <h2 style={{ color: 'var(--accent-color)' }}>
+                {roomData.taxState.revolutionBy}님이 조커 2장으로 혁명을 일으켰습니다!
+              </h2>
+              <p style={{ marginTop: '1rem', fontSize: '1.2rem' }}>
+                {roomData.taxState.revolution === 'greater' ? '모든 계급이 완전히 거꾸로 뒤집힙니다! 세금 납부가 무효화됩니다.' : '세금 납부가 무효화됩니다.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <h2 style={{ marginBottom: '1.5rem', color: 'var(--accent-color)' }}>⚖️ 세금 징수 시간 ⚖️</h2>
+              
+              {hasRevolution && (
+                <button className="btn" style={{ backgroundColor: 'var(--danger-color)', borderColor: 'var(--danger-color)', marginBottom: '2rem' }} onClick={declareRevolution}>
+                  🔥 조커 2장으로 혁명 일으키기 🔥
+                </button>
+              )}
+
+              {isDalmuti ? (
+                roomData.taxState?.dalmutiCards ? (
+                  <p>농노에게 하사할 카드를 전달했습니다. 다른 플레이어를 기다리는 중...</p>
+                ) : (
+                  <div>
+                    <p style={{ marginBottom: '1rem' }}>👑 대달무티이십니다. 농노에게 하사할 아무 카드나 2장 선택해주세요.</p>
+                    <button className="btn" disabled={selectedCards.length !== 2} onClick={giveTax}>하사하기</button>
+                  </div>
+                )
+              ) : isNoble ? (
+                roomData.taxState?.nobleCards ? (
+                  <p>소농노에게 하사할 카드를 전달했습니다. 다른 플레이어를 기다리는 중...</p>
+                ) : (
+                  <div>
+                    <p style={{ marginBottom: '1rem' }}>💎 소달무티이십니다. 소농노에게 하사할 아무 카드나 1장 선택해주세요.</p>
+                    <button className="btn" disabled={selectedCards.length !== 1} onClick={giveTax}>하사하기</button>
+                  </div>
+                )
+              ) : (
+                <div style={{ marginBottom: '2rem' }}>
+                  <p style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}>👑 왕과 귀족이 노예에게 줄 카드를 고르고 있습니다...</p>
+                  {isPeasant && <p style={{ marginTop: '1rem', color: 'var(--danger-color)' }}>당신은 대농노입니다. 가장 좋은 카드 2장이 자동으로 왕에게 바쳐집니다.</p>}
+                  {myRankIndex === roomData.ranks?.length - 2 && <p style={{ marginTop: '1rem', color: 'var(--danger-color)' }}>당신은 소농노입니다. 가장 좋은 카드 1장이 자동으로 귀족에게 바쳐집니다.</p>}
+                </div>
+              )}
+              
+              <div className="hand-cards" style={{ marginTop: '2rem' }}>
+                {myHand.map((num, idx) => (
+                  <div key={idx} className="hand-card-wrapper">
+                    <Card 
+                      number={num} 
+                      name={CARD_NAMES[num]} 
+                      isSelected={selectedCards.includes(idx)}
+                      onClick={() => handleCardClick(idx)}
+                      isPlayable={!roomData.taxState?.dalmutiCards && isDalmuti || !roomData.taxState?.nobleCards && isNoble}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -216,7 +419,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
           
           <div className="my-hand-container">
             <div className="turn-indicator" style={{ marginBottom: '1rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-color)' : 'var(--text-muted)' }}>
-              {isFinished ? '🎉 게임 종료! 다른 플레이어들을 기다립니다.' : (isMyTurn ? '👉 내 턴입니다!' : `⏳ ${currentTurnPlayer}의 턴을 기다리는 중...`)}
+              {isFinished ? '🎉 모든 카드를 털었습니다! 구경 중...' : (isMyTurn ? '👉 내 턴입니다!' : `⏳ ${currentTurnPlayer}의 턴을 기다리는 중...`)}
             </div>
             <div className="hand-actions">
               <button className="btn" disabled={!isMyTurn || selectedCards.length === 0 || isFinished} onClick={playCards}>카드 내기</button>
@@ -244,7 +447,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
 
       {roomData.status === 'round_over' && (
         <div className="waiting-room text-center">
-          <h2 style={{ marginBottom: '1.5rem', color: 'var(--accent-color)' }}>🎉 게임 종료! 🎉</h2>
+          <h2 style={{ marginBottom: '1.5rem', color: 'var(--accent-color)' }}>🎉 라운드 종료! 🎉</h2>
           <h3>최종 계급도</h3>
           <ol style={{ marginTop: '1rem', marginBottom: '2rem', textAlign: 'left', display: 'inline-block' }}>
             {roomData.ranks && roomData.ranks.map((name, idx) => {
@@ -258,8 +461,8 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
             })}
           </ol>
           {isHost && (
-            <button className="btn" onClick={() => update(ref(db, `rooms/${roomCode}`), { status: 'waiting', ranks: roomData.ranks })}>
-              다음 판 준비하기 (로비로 돌아가기)
+            <button className="btn" onClick={startGame}>
+              다음 판 시작하기 (세금 납부 및 카드 섞기)
             </button>
           )}
         </div>
