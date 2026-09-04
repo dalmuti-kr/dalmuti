@@ -358,6 +358,10 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     );
   };
 
+  // 카드 분리 렌더링을 위한 인덱스 계산
+  const stagedIndices = selectedCards;
+  const unselectedIndices = myHand.map((_, i) => i).filter(i => !selectedCards.includes(i));
+
   return (
     <div className="game-board">
       <div className="game-header">
@@ -451,22 +455,20 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               )}
               
               <div className="hand-cards" style={{ marginTop: '2rem' }}>
-                {myHand.map((num, idx) => {
-                  const isSameAsPrev = idx > 0 && myHand[idx-1] === num;
+                {unselectedIndices.map((idx, i) => {
+                  const num = myHand[idx];
+                  const isSameAsPrev = i > 0 && myHand[unselectedIndices[i-1]] === num;
                   return (
                     <div 
-                      key={idx} 
-                      className={`hand-card-wrapper ${getIsCardDimmed(num) ? 'dimmed' : ''} ${isCardJesterGlow(num) ? 'jester-glow' : ''}`}
+                      key={`tax-hand-${idx}`} 
+                      className="hand-card-wrapper"
                       style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
                     >
                       <Card 
                         number={num} 
                         name={CARD_NAMES[num]} 
-                        isSelected={selectedCards.includes(idx)}
-                        onClick={() => {
-                          if (getIsCardDimmed(num)) return; // 낼 수 없는 카드 클릭 방지
-                          handleCardClick(idx);
-                        }}
+                        isSelected={false}
+                        onClick={() => handleCardClick(idx)}
                         isPlayable={(!roomData.taxState?.dalmutiCards && isDalmuti) || (!roomData.taxState?.nobleCards && isNoble)}
                       />
                     </div>
@@ -516,6 +518,34 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               {isMyTurn && !isFinished ? validationMessage : ''}
             </div>
 
+            <div className="staging-area" style={{ minHeight: '160px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '1rem', border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '1rem', background: 'rgba(0,0,0,0.2)' }}>
+              {stagedIndices.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)' }}>제출할 카드를 터치해서 올리세요</p>
+              ) : (
+                <div style={{ display: 'flex' }}>
+                  {stagedIndices.map((idx, i) => {
+                    const num = myHand[idx];
+                    const isSameAsPrev = i > 0 && myHand[stagedIndices[i-1]] === num;
+                    return (
+                      <div 
+                        key={`staged-${idx}`} 
+                        className="hand-card-wrapper" 
+                        style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
+                      >
+                        <Card 
+                          number={num} 
+                          name={CARD_NAMES[num]} 
+                          isSelected={false}
+                          onClick={() => handleCardClick(idx)}
+                          isPlayable={true}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <div className="hand-actions">
               <button 
                 className="btn" 
@@ -526,20 +556,22 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               </button>
               <button className="btn btn-secondary" disabled={!isMyTurn || (!centerCards) || isFinished} onClick={passTurn}>패스 (Pass)</button>
             </div>
+            
             <div className="hand-cards">
-              {myHand.map((num, idx) => {
-                const isSameAsPrev = idx > 0 && myHand[idx-1] === num;
+              {unselectedIndices.map((idx, i) => {
+                const num = myHand[idx];
+                const isSameAsPrev = i > 0 && myHand[unselectedIndices[i-1]] === num;
                 const isDimmed = getIsCardDimmed(num);
                 return (
                   <div 
-                    key={idx} 
+                    key={`hand-${idx}`} 
                     className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''} ${isCardJesterGlow(num) ? 'jester-glow' : ''}`} 
                     style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
                   >
                     <Card 
                       number={num} 
                       name={CARD_NAMES[num]} 
-                      isSelected={selectedCards.includes(idx)}
+                      isSelected={false}
                       onClick={() => {
                         if (isDimmed) return;
                         handleCardClick(idx);
