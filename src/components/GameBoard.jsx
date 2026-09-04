@@ -43,7 +43,6 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       const ranks = roomData.ranks;
       
       if (!ranks || ranks.length < 4) {
-        // 인원이 적어 세금 규칙을 적용할 수 없는 경우 바로 시작
         update(ref(db, `rooms/${roomCode}`), {
           status: 'playing',
           currentTurn: ranks ? ranks[0] : Object.keys(roomData.players)[0],
@@ -53,13 +52,12 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       }
 
       if (taxState?.revolution) {
-        // 혁명이 일어났으면 3초 뒤에 바로 플레이 시작
         if (!taxState.processedRevolution) {
            update(ref(db, `rooms/${roomCode}/taxState/processedRevolution`), true);
            setTimeout(() => {
              let newRanks = [...ranks];
              if (taxState.revolution === 'greater') {
-               newRanks.reverse(); // 대혁명: 계급 뒤집기
+               newRanks.reverse();
              }
              update(ref(db, `rooms/${roomCode}`), {
                status: 'playing',
@@ -76,7 +74,6 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       const nobleReady = taxState?.nobleCards !== undefined;
       
       if (dalmutiReady && nobleReady) {
-        // 세금 교환 실행
         const dalmutiName = ranks[0];
         const nobleName = ranks[1];
         const lesserPeasantName = ranks[ranks.length - 2];
@@ -87,7 +84,6 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
         const lesserPeasantHand = [...roomData.players[lesserPeasantName].hand];
         const peasantHand = [...roomData.players[peasantName].hand];
         
-        // 왕/귀족이 고른 카드 빼기
         taxState.dalmutiCards.forEach(c => {
            const idx = dalmutiHand.indexOf(c);
            if (idx > -1) dalmutiHand.splice(idx, 1);
@@ -97,14 +93,12 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
            if (idx > -1) nobleHand.splice(idx, 1);
         });
         
-        // 노예들의 가장 좋은 카드(숫자가 낮은 것) 뽑기
         peasantHand.sort((a,b) => a-b);
         const pBest = peasantHand.splice(0, 2);
         
         lesserPeasantHand.sort((a,b) => a-b);
         const lpBest = lesserPeasantHand.splice(0, 1);
         
-        // 카드 교환
         dalmutiHand.push(...pBest);
         dalmutiHand.sort((a,b) => a-b);
         
@@ -128,7 +122,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
         });
       }
     }
-  }, [roomData?.status, roomData?.taxState]); // Removed isHost from deps to avoid stale closures, it's checked inside
+  }, [roomData?.status, roomData?.taxState]);
 
   if (!roomData) return <div className="lobby-container">Loading...</div>;
 
@@ -148,7 +142,6 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     const playerNames = Object.keys(players);
     const hands = distributeCards(deck, playerNames);
     
-    // 첫 판은 무작위, 그 다음부터는 세금 단계 진입
     const isFirstGame = !roomData.ranks;
     const startPlayer = isFirstGame ? playerNames[Math.floor(Math.random() * playerNames.length)] : null;
 
@@ -187,7 +180,6 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   const finishedPlayers = roomData.finishedPlayers || [];
   const isFinished = finishedPlayers.includes(nickname);
 
-  // 혁명 조건 검사 (어릿광대 2장)
   const hasRevolution = myHand.filter(c => c === 13).length >= 2;
   const myRankIndex = roomData.ranks ? roomData.ranks.indexOf(nickname) : -1;
   const isDalmuti = myRankIndex === 0;
@@ -292,6 +284,56 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     setSelectedCards([]);
   };
 
+  // 상대방 플레이어 배치 계산 (U자형 Grid 레이아웃)
+  const orderedPlayers = roomData.ranks || Object.keys(players);
+  const myIndex = orderedPlayers.indexOf(nickname);
+  const opponents = [];
+  
+  if (myIndex !== -1) {
+    for (let i = 1; i < orderedPlayers.length; i++) {
+      const oppName = orderedPlayers[(myIndex + i) % orderedPlayers.length];
+      opponents.push(oppName);
+    }
+  }
+
+  const K = opponents.length;
+  let leftCount = 0, topCount = 0, rightCount = 0;
+  if (K === 1) topCount = 1;
+  else if (K === 2) { leftCount = 1; rightCount = 1; }
+  else if (K === 3) { leftCount = 1; topCount = 1; rightCount = 1; }
+  else if (K === 4) { leftCount = 1; topCount = 2; rightCount = 1; }
+  else if (K === 5) { leftCount = 2; topCount = 1; rightCount = 2; }
+  else if (K === 6) { leftCount = 2; topCount = 2; rightCount = 2; }
+  else if (K === 7) { leftCount = 2; topCount = 3; rightCount = 2; }
+
+  const leftOpponents = opponents.slice(0, leftCount).reverse(); // 왼쪽은 아래부터 위로 채움
+  const topOpponents = opponents.slice(leftCount, leftCount + topCount); // 위쪽은 왼쪽부터 오른쪽으로
+  const rightOpponents = opponents.slice(leftCount + topCount, leftCount + topCount + rightCount); // 오른쪽은 위부터 아래로
+
+  const getRankEmoji = (playerName) => {
+    if (!roomData.ranks) return '👤';
+    const idx = roomData.ranks.indexOf(playerName);
+    if (idx === 0) return '👑'; // 대달무티
+    if (idx === 1) return '💎'; // 소달무티
+    if (idx === roomData.ranks.length - 1) return '🧹'; // 대농노
+    if (idx === roomData.ranks.length - 2) return '⛏️'; // 소농노
+    return '💼'; // 상인
+  };
+
+  const renderOpponent = (oppName) => {
+    const isOppTurn = oppName === currentTurnPlayer;
+    const isOppFinished = finishedPlayers.includes(oppName);
+    const oppHandCount = roomData.players[oppName]?.hand?.length || 0;
+    
+    return (
+      <div key={oppName} className={`opponent-avatar ${isOppTurn && !isOppFinished ? 'current-turn' : ''} ${isOppFinished ? 'finished' : ''}`}>
+        <div className="opponent-rank">{getRankEmoji(oppName)}</div>
+        <div className="opponent-name">{oppName}</div>
+        <div className="opponent-cards">{isOppFinished ? '🎉 통과' : `🎴 ${oppHandCount}장`}</div>
+      </div>
+    );
+  };
+
   return (
     <div className="game-board">
       <div className="game-header">
@@ -299,7 +341,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
         <button className="btn btn-secondary" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={onLeave}>나가기</button>
       </div>
       
-      <p className="philosophy-text" style={{ textAlign: 'center', marginBottom: '2rem' }}>Das Leben ist ungerecht</p>
+      <p className="philosophy-text" style={{ textAlign: 'center', marginBottom: '1rem' }}>Das Leben ist ungerecht</p>
 
       {roomData.status === 'waiting' && (
         <div className="waiting-room">
@@ -392,7 +434,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                       name={CARD_NAMES[num]} 
                       isSelected={selectedCards.includes(idx)}
                       onClick={() => handleCardClick(idx)}
-                      isPlayable={!roomData.taxState?.dalmutiCards && isDalmuti || !roomData.taxState?.nobleCards && isNoble}
+                      isPlayable={(!roomData.taxState?.dalmutiCards && isDalmuti) || (!roomData.taxState?.nobleCards && isNoble)}
                     />
                   </div>
                 ))}
@@ -404,21 +446,35 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
 
       {roomData.status === 'playing' && (
         <div className="play-area">
-          <div className="center-table">
-            <div className="center-cards" style={{ display: 'flex', gap: '1rem' }}>
-              {centerCards ? (
-                centerCards.cards.map((num, idx) => (
-                  <Card key={idx} number={num} name={CARD_NAMES[num]} isPlayable={false} />
-                ))
-              ) : (
-                <p style={{ color: 'var(--text-muted)' }}>테이블 중앙이 비어있습니다. 아무 카드나 낼 수 있습니다.</p>
-              )}
+          <div className="table-container">
+            <div className="left-opponents">
+              {leftOpponents.map(renderOpponent)}
             </div>
-            {centerCards && <p style={{ position: 'absolute', bottom: '2rem', color: 'var(--text-muted)' }}>마지막으로 낸 사람: {roomData.lastPlayedBy}</p>}
+            
+            <div className="top-opponents">
+              {topOpponents.map(renderOpponent)}
+            </div>
+            
+            <div className="right-opponents">
+              {rightOpponents.map(renderOpponent)}
+            </div>
+            
+            <div className="center-table">
+              <div className="center-cards" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                {centerCards ? (
+                  centerCards.cards.map((num, idx) => (
+                    <Card key={idx} number={num} name={CARD_NAMES[num]} isPlayable={false} />
+                  ))
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>테이블이 비어있습니다.</p>
+                )}
+              </div>
+              {centerCards && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>마지막으로 낸 사람: {roomData.lastPlayedBy}</p>}
+            </div>
           </div>
           
           <div className="my-hand-container">
-            <div className="turn-indicator" style={{ marginBottom: '1rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-color)' : 'var(--text-muted)' }}>
+            <div className="turn-indicator" style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-color)' : 'var(--text-muted)' }}>
               {isFinished ? '🎉 모든 카드를 털었습니다! 구경 중...' : (isMyTurn ? '👉 내 턴입니다!' : `⏳ ${currentTurnPlayer}의 턴을 기다리는 중...`)}
             </div>
             <div className="hand-actions">

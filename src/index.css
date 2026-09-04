@@ -115,6 +115,101 @@ h1, h2, h3 {
   box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
 }
 
+.table-container {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 120px 1fr 120px;
+  grid-template-rows: 120px 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.left-opponents {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.top-opponents {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.right-opponents {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.center-table {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.opponent-avatar {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 0.5rem;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.opponent-avatar.current-turn {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
+}
+
+.opponent-avatar.finished {
+  opacity: 0.5;
+  filter: grayscale(100%);
+}
+
+.opponent-rank {
+  font-size: 1.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.opponent-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 0.2rem;
+  color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.opponent-cards {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 /* Lobby Layout */
 .lobby-container {
   display: flex;
