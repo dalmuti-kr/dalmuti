@@ -63,7 +63,7 @@ function App() {
   };
 
   const generateRoomCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
+    return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
   const handleCreateRoomClick = () => {
@@ -182,27 +182,27 @@ function App() {
           />
         </div>
         
-        <button className="btn" onClick={handleCreateRoomClick}>새로운 방 만들기</button>
-        
-        <div className="divider">또는</div>
-        
         <div className="form-group">
-          <label htmlFor="roomcode">입장 코드</label>
+          <label htmlFor="roomcode">입장 코드 (6자리 숫자)</label>
           <input 
             type="text" 
             id="roomcode" 
             className="input" 
             placeholder="6자리 코드 입력"
             value={roomCode}
-            onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+            onChange={(e) => setRoomCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
             maxLength={6}
           />
         </div>
         
-        <button className="btn btn-secondary" onClick={joinRoom}>방 입장하기</button>
+        <button className="btn" onClick={joinRoom}>방 입장하기</button>
+        
+        <div className="divider">또는</div>
+        
+        <button className="btn btn-secondary" onClick={handleCreateRoomClick}>새로운 방 만들기</button>
 
         <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-          <button className="btn btn-secondary" style={{ backgroundColor: 'transparent', border: '1px solid var(--border-color)', fontSize: '0.8rem', padding: '0.5rem' }} onClick={handleHistoryClick}>
+          <button className="btn btn-secondary" style={{ opacity: 0.6, backgroundColor: 'transparent', border: '1px solid var(--border-color)', fontSize: '0.8rem', padding: '0.5rem' }} onClick={handleHistoryClick}>
             📜 전체 과거 기록 조회
           </button>
         </div>

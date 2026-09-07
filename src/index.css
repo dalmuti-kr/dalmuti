@@ -117,9 +117,8 @@ h1, h2, h3 {
 
 .table-container {
   flex: 1;
-  display: grid;
-  grid-template-columns: 120px 1fr 120px;
-  grid-template-rows: 120px 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
   padding: 1rem;
   width: 100%;
@@ -127,39 +126,24 @@ h1, h2, h3 {
   margin: 0 auto;
 }
 
-.left-opponents {
-  grid-column: 1;
-  grid-row: 1 / span 2;
+.opponents-row {
   display: flex;
-  flex-direction: column-reverse;
-  justify-content: center;
+  flex-direction: row;
+  justify-content: flex-start;
   align-items: center;
   gap: 1rem;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 10px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
-
-.top-opponents {
-  grid-column: 2;
-  grid-row: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.right-opponents {
-  grid-column: 3;
-  grid-row: 1 / span 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
+.opponents-row::-webkit-scrollbar {
+  display: none;
 }
 
 .center-table {
-  grid-column: 2;
-  grid-row: 2;
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -544,5 +528,67 @@ h1, h2, h3 {
 
 .hand-card-wrapper:first-child {
   margin-left: 0;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .game-board {
+    padding: 0.5rem;
+  }
+  .table-container {
+    padding: 0;
+    gap: 0.5rem;
+  }
+  .playing-card {
+    width: 60px;
+    height: 90px;
+  }
+  .card-number-text {
+    font-size: 1rem;
+  }
+  .card-rank-main {
+    font-size: 0.75rem;
+  }
+  .card-rank-sub {
+    font-size: 0.55rem;
+  }
+  .hand-card-wrapper {
+    margin-left: -30px !important;
+  }
+  .hand-card-wrapper:first-child {
+    margin-left: 0 !important;
+  }
+  .opponent-avatar {
+    min-width: 60px;
+    padding: 0.4rem;
+  }
+  .opponent-rank {
+    font-size: 1.2rem;
+  }
+  .opponent-name {
+    font-size: 0.8rem;
+    max-width: 60px;
+  }
+  .lobby-card, .waiting-room {
+    padding: 1.5rem;
+    width: 95%;
+  }
+  .btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+  .hand-actions {
+    gap: 0.5rem;
+  }
+  .hand-actions .btn {
+    min-width: 90px;
+  }
+  .philosophy-text {
+    font-size: 0.7rem;
+    margin: 0.5rem 0;
+  }
+  .lobby-title {
+    font-size: 2.2rem;
+  }
 }
 

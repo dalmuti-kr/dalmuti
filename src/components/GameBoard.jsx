@@ -204,6 +204,28 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     if (selectedCards.includes(idx)) {
       setSelectedCards(selectedCards.filter(i => i !== idx));
     } else {
+      const clickedCardValue = myHand[idx];
+      const currentSelectedValues = selectedCards.map(i => myHand[i]);
+      const currentNormalCards = currentSelectedValues.filter(c => c !== 13);
+      
+      // 교차 선택 방지 (조커 제외)
+      if (currentNormalCards.length > 0 && clickedCardValue !== 13 && clickedCardValue !== currentNormalCards[0]) {
+        return; 
+      }
+      
+      // 스마트 자동 선택 로직
+      if (roomData.status === 'playing' && centerCards && centerCards.count > 0 && clickedCardValue !== 13 && currentNormalCards.length === 0) {
+        const requiredCount = centerCards.count;
+        const allIndicesOfThisCard = myHand.map((val, i) => val === clickedCardValue ? i : -1).filter(i => i !== -1 && !selectedCards.includes(i));
+        
+        if (allIndicesOfThisCard.length + 1 >= requiredCount) {
+          const needed = requiredCount - 1;
+          const autoSelectIndices = allIndicesOfThisCard.slice(0, needed);
+          setSelectedCards([...selectedCards, idx, ...autoSelectIndices]);
+          return;
+        }
+      }
+      
       setSelectedCards([...selectedCards, idx]);
     }
   };
@@ -288,9 +310,9 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   };
 
   const declareRevolution = () => {
-    update(ref(db, `rooms/${roomCode}/taxState`), {
-      revolution: isPeasant ? 'greater' : true,
-      revolutionBy: nickname
+    update(ref(db, `rooms/${roomCode}`), {
+      'taxState/revolution': isPeasant ? 'greater' : true,
+      'taxState/revolutionBy': nickname
     });
   };
 
@@ -322,51 +344,37 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       : `불가: ${currentValidation.reason}`;
 
   const getIsCardDimmed = (num) => {
-    if (isFinished || !isMyTurn || roomData.status !== 'playing') return false;
+    if (isFinished || roomData.status !== 'playing') return false;
+    if (!isMyTurn) return true; // 내 턴이 아니면 모두 딤(Dim) 처리
+    
+    // 이미 선택한 카드가 있다면, 다른 계급 카드 딤 처리
+    const currentSelectedValues = selectedCards.map(i => myHand[i]);
+    const currentNormalCards = currentSelectedValues.filter(c => c !== 13);
+    if (currentNormalCards.length > 0 && num !== 13 && num !== currentNormalCards[0]) {
+      return true;
+    }
+
     if (!centerCards) return false;
     if (num === 13) return false; // 조커는 어두워지지 않음
     return num >= centerCards.rank; // 낼 수 없는 숫자(계급)면 딤(Dim) 처리
   };
 
   const isCardJesterGlow = (num) => {
-    // 13(조커)이고, 무언가 일반 카드를 선택한 상태라면 반짝임
     return num === 13 && hasSelectedNormalCard && roomData.status === 'playing';
   };
 
-  // 상대방 플레이어 배치 계산 (U자형 Grid 레이아웃)
+  // 상대방 플레이어 배치 계산 (계급 순 가로 배열)
   const orderedPlayers = roomData.ranks || Object.keys(players);
-  const myIndex = orderedPlayers.indexOf(nickname);
-  const opponents = [];
-  
-  if (myIndex !== -1) {
-    for (let i = 1; i < orderedPlayers.length; i++) {
-      const oppName = orderedPlayers[(myIndex + i) % orderedPlayers.length];
-      opponents.push(oppName);
-    }
-  }
-
-  const K = opponents.length;
-  let leftCount = 0, topCount = 0, rightCount = 0;
-  if (K === 1) topCount = 1;
-  else if (K === 2) { leftCount = 1; rightCount = 1; }
-  else if (K === 3) { leftCount = 1; topCount = 1; rightCount = 1; }
-  else if (K === 4) { leftCount = 1; topCount = 2; rightCount = 1; }
-  else if (K === 5) { leftCount = 2; topCount = 1; rightCount = 2; }
-  else if (K === 6) { leftCount = 2; topCount = 2; rightCount = 2; }
-  else if (K === 7) { leftCount = 2; topCount = 3; rightCount = 2; }
-
-  const leftOpponents = opponents.slice(0, leftCount).reverse(); // 왼쪽은 아래부터 위로 채움
-  const topOpponents = opponents.slice(leftCount, leftCount + topCount); // 위쪽은 왼쪽부터 오른쪽으로
-  const rightOpponents = opponents.slice(leftCount + topCount, leftCount + topCount + rightCount); // 오른쪽은 위부터 아래로
+  const opponents = orderedPlayers.filter(p => p !== nickname);
 
   const getRankEmoji = (playerName) => {
     if (!roomData.ranks) return '👤';
     const idx = roomData.ranks.indexOf(playerName);
-    if (idx === 0) return '👑'; // 대달무티
-    if (idx === 1) return '💎'; // 소달무티
-    if (idx === roomData.ranks.length - 1) return '🧹'; // 대농노
-    if (idx === roomData.ranks.length - 2) return '⛏️'; // 소농노
-    return '💼'; // 상인
+    if (idx === 0) return '👑 왕';
+    if (idx === 1) return '💎 귀족';
+    if (idx === roomData.ranks.length - 1) return '🧹 노예';
+    if (idx === roomData.ranks.length - 2) return '⛏️ 평민';
+    return '💼 상인';
   };
 
   const renderOpponent = (oppName) => {
@@ -483,23 +491,50 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                 {unselectedIndices.map((idx, i) => {
                   const num = myHand[idx];
                   const isSameAsPrev = i > 0 && myHand[unselectedIndices[i-1]] === num;
+                  const isDimmed = selectedCards.length > 0 && selectedCards[0] !== idx && myHand[selectedCards[0]] !== num && num !== 13;
                   return (
                     <div 
                       key={`tax-hand-${idx}`} 
-                      className="hand-card-wrapper"
+                      className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''}`}
                       style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
                     >
                       <Card 
                         number={num} 
                         name={CARD_NAMES[num]} 
                         isSelected={false}
-                        onClick={() => handleCardClick(idx)}
+                        onClick={() => {
+                          if (isDimmed) return;
+                          handleCardClick(idx);
+                        }}
                         isPlayable={(!roomData.taxState?.dalmutiCards && isDalmuti) || (!roomData.taxState?.nobleCards && isNoble)}
                       />
                     </div>
                   );
                 })}
               </div>
+
+              {selectedCards.length > 0 && (
+                <div style={{ marginTop: '2rem', padding: '1rem', border: '2px dashed var(--border-color)', borderRadius: '12px', background: 'rgba(0,0,0,0.2)' }}>
+                  <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>선택된 카드 (클릭하여 취소)</p>
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    {selectedCards.map((idx, i) => {
+                      const num = myHand[idx];
+                      const isSameAsPrev = i > 0 && myHand[selectedCards[i-1]] === num;
+                      return (
+                        <div key={`tax-staged-${idx}`} className="hand-card-wrapper" style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}>
+                          <Card 
+                            number={num} 
+                            name={CARD_NAMES[num]} 
+                            isSelected={false}
+                            onClick={() => handleCardClick(idx)}
+                            isPlayable={true}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -508,16 +543,8 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       {roomData.status === 'playing' && (
         <div className="play-area">
           <div className="table-container">
-            <div className="left-opponents">
-              {leftOpponents.map(renderOpponent)}
-            </div>
-            
-            <div className="top-opponents">
-              {topOpponents.map(renderOpponent)}
-            </div>
-            
-            <div className="right-opponents">
-              {rightOpponents.map(renderOpponent)}
+            <div className="opponents-row">
+              {opponents.map(renderOpponent)}
             </div>
             
             <div className="center-table">
@@ -571,16 +598,18 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               )}
             </div>
 
-            <div className="hand-actions">
-              <button 
-                className="btn" 
-                disabled={!isMyTurn || !isSelectionValid || isFinished} 
-                onClick={playCards}
-              >
-                카드 내기
-              </button>
-              <button className="btn btn-secondary" disabled={!isMyTurn || (!centerCards) || isFinished} onClick={passTurn}>패스 (Pass)</button>
-            </div>
+            {!isFinished && (
+              <div className="hand-actions" style={{ opacity: isMyTurn ? 1 : 0.5 }}>
+                <button 
+                  className="btn" 
+                  disabled={!isMyTurn || !isSelectionValid || isFinished} 
+                  onClick={playCards}
+                >
+                  카드 내기
+                </button>
+                <button className="btn btn-secondary" disabled={!isMyTurn || (!centerCards) || isFinished} onClick={passTurn}>패스 (Pass)</button>
+              </div>
+            )}
             
             <div className="hand-cards">
               {unselectedIndices.map((idx, i) => {
@@ -618,18 +647,22 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
           <ol style={{ marginTop: '1rem', marginBottom: '2rem', textAlign: 'left', display: 'inline-block' }}>
             {roomData.ranks && roomData.ranks.map((name, idx) => {
                let title = '';
-               if (idx === 0) title = '👑 대달무티 (왕)';
-               else if (idx === 1) title = '💎 소달무티 (귀족)';
-               else if (idx === roomData.ranks.length - 1) title = '🧹 대농노 (노예)';
-               else if (idx === roomData.ranks.length - 2) title = '⛏️ 소농노 (평민)';
+               if (idx === 0) title = '👑 왕';
+               else if (idx === 1) title = '💎 귀족';
+               else if (idx === roomData.ranks.length - 1) title = '🧹 노예';
+               else if (idx === roomData.ranks.length - 2) title = '⛏️ 평민';
                else title = '상인';
                return <li key={name} style={{ margin: '0.5rem 0', fontSize: '1.1rem' }}>{title} - <strong>{name}</strong></li>;
             })}
           </ol>
-          {isHost && (
+          {isHost ? (
             <button className="btn" onClick={startGame}>
-              다음 판 시작하기 (세금 납부 및 카드 섞기)
+              다음 라운드 시작하기 (세금 납부 및 카드 섞기)
             </button>
+          ) : (
+            <div style={{ color: 'var(--text-muted)', fontSize: '1.2rem', marginTop: '1rem' }}>
+              ⏳ 방장이 다음 라운드를 시작할 때까지 대기중...
+            </div>
           )}
         </div>
       )}

@@ -5,7 +5,7 @@ export default function Card({ number, name, isSelected, onClick, isPlayable = t
   const subName = name.split(' (')[1]?.replace(')', '');
 
   const bgStyle = {
-    backgroundImage: `url(/assets/cards/${number}.png)`,
+    backgroundImage: `url(${import.meta.env.BASE_URL}assets/cards/${number}.png)`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
   };
