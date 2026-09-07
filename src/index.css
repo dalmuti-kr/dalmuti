@@ -164,6 +164,10 @@ h1, h2, h3 {
   transition: all 0.3s ease;
 }
 
+.opponent-avatar.is-me {
+  background-color: rgba(139, 92, 246, 0.25);
+}
+
 .opponent-avatar.current-turn {
   border-color: var(--accent-color);
   box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);

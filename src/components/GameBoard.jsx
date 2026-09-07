@@ -23,6 +23,19 @@ export const CARD_NAMES = {
 export default function GameBoard({ roomCode, nickname, onLeave }) {
   const [roomData, setRoomData] = useState(null);
   const [selectedCards, setSelectedCards] = useState([]);
+  const [taxCountdown, setTaxCountdown] = useState(null);
+
+  useEffect(() => {
+    if (roomData?.taxState?.processedTax && !roomData?.taxState?.taxComplete && !roomData?.taxState?.revolution) {
+      setTaxCountdown(3);
+      const interval = setInterval(() => {
+        setTaxCountdown(prev => prev > 1 ? prev - 1 : 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setTaxCountdown(null);
+    }
+  }, [roomData?.taxState?.processedTax, roomData?.taxState?.taxComplete, roomData?.taxState?.revolution]);
 
   useEffect(() => {
     const roomRef = ref(db, `rooms/${roomCode}`);
@@ -76,6 +89,18 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       const nobleReady = taxState?.nobleCards !== undefined;
       
       if (dalmutiReady && nobleReady) {
+        if (!taxState.processedTax) {
+           update(ref(db, `rooms/${roomCode}`), { 'taxState/processedTax': true });
+           setTimeout(() => {
+              update(ref(db, `rooms/${roomCode}`), { 'taxState/taxComplete': true });
+           }, 3000);
+           return;
+        }
+        
+        if (!taxState.taxComplete) {
+           return;
+        }
+
         const dalmutiName = ranks[0];
         const nobleName = ranks[1];
         const lesserPeasantName = ranks[ranks.length - 2];
@@ -476,7 +501,12 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                 </button>
               )}
 
-              {isDalmuti ? (
+              {taxCountdown !== null ? (
+                <div style={{ margin: '2rem 0', animation: 'fadeIn 0.3s ease' }}>
+                  <h1 style={{ fontSize: '4rem', color: 'var(--accent-color)' }}>{taxCountdown}</h1>
+                  <p style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}>잠시 후 세금 교환과 함께 게임이 시작됩니다...</p>
+                </div>
+              ) : isDalmuti ? (
                 roomData.taxState?.dalmutiCards ? (
                   <p>농노에게 하사할 카드를 전달했습니다. 다른 플레이어를 기다리는 중...</p>
                 ) : (
@@ -582,7 +612,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
           
           <div className="my-hand-container">
             <div className="turn-indicator" style={{ marginBottom: '0.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-color)' : 'var(--text-muted)' }}>
-              {isFinished ? '🎉 모든 카드를 털었습니다! 구경 중...' : (isMyTurn ? '👉 내 턴입니다!' : `⏳ ${currentTurnPlayer}의 턴을 기다리는 중...`)}
+              {isFinished ? `🎉 모든 카드를 털었습니다! 구경 중... (현재 👉 ${currentTurnPlayer} 턴)` : (isMyTurn ? '👉 내 턴입니다!' : `⏳ ${currentTurnPlayer}의 턴을 기다리는 중...`)}
             </div>
             
             <div className="validation-message" style={{ height: '20px', marginBottom: '0.2rem', color: isSelectionValid ? 'var(--accent-color)' : 'var(--danger-color)', fontSize: '0.9rem', fontWeight: 'bold' }}>
