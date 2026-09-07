@@ -511,7 +511,6 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                       <div 
                         key={`tax-hand-${num}`} 
                         className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''}`}
-                        style={{ marginLeft: i > 0 ? '5px' : '0' }}
                       >
                         <Card 
                           number={num} 
@@ -641,7 +640,6 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                     <div 
                       key={`grouped-hand-${num}`} 
                       className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''} ${isCardJesterGlow(num) ? 'jester-glow' : ''}`} 
-                      style={{ marginLeft: i > 0 ? '5px' : '0' }}
                     >
                       <Card 
                         number={num} 

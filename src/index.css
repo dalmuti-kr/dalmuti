@@ -547,30 +547,25 @@ h1, h2, h3 {
   display: flex;
   justify-content: flex-start;
   align-items: flex-end;
-  height: 150px;
+  height: 140px;
   margin-top: 1rem;
   overflow-x: auto;
-  padding-bottom: 20px;
+  overflow-y: hidden;
   white-space: nowrap;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  gap: 16px;
+  padding: 0 10px 10px 10px;
+  width: 100%;
 }
 
 .hand-cards::-webkit-scrollbar {
-  height: 8px;
-}
-.hand-cards::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  display: none;
 }
 
 .hand-card-wrapper {
-  margin-left: -40px;
+  flex-shrink: 0;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.hand-card-wrapper:first-child {
-  margin-left: 0;
 }
 
 /* Mobile Responsiveness */
@@ -596,10 +591,10 @@ h1, h2, h3 {
     font-size: 0.55rem;
   }
   .hand-card-wrapper {
-    margin-left: -30px !important;
-  }
-  .hand-card-wrapper:first-child {
     margin-left: 0 !important;
+  }
+  .hand-cards {
+    gap: 4px;
   }
   .opponent-avatar {
     min-width: 60px;
