@@ -273,6 +273,8 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       return;
     }
     
+    if (!window.confirm('정말 이 카드를 내시겠습니까?')) return;
+    
     const newHand = myHand.filter((_, idx) => !selectedCards.includes(idx));
     
     let nextFinished = [...finishedPlayers];
@@ -319,6 +321,8 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   };
 
   const passTurn = () => {
+    if (!window.confirm('정말 패스하시겠습니까?')) return;
+    
     const orderedPlayers = roomData.ranks || Object.keys(players);
     const passed = roomData.passedPlayers || [];
     const activeCount = orderedPlayers.filter(p => !finishedPlayers.includes(p)).length;
@@ -347,6 +351,8 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   };
 
   const declareRevolution = () => {
+    if (!window.confirm('정말 조커 2장으로 혁명을 일으키시겠습니까? 세금 징수가 전면 무효화됩니다!')) return;
+    
     update(ref(db, `rooms/${roomCode}`), {
       'taxState/revolution': isPeasant ? 'greater' : true,
       'taxState/revolutionBy': nickname
@@ -362,6 +368,9 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       alert('소농노에게 줄 카드 1장을 선택해주세요.');
       return;
     }
+    
+    if (!window.confirm('선택한 카드를 하사하시겠습니까?')) return;
+    
     const selectedValues = selectedCards.map(idx => myHand[idx]);
     const target = isDalmuti ? 'dalmutiCards' : 'nobleCards';
     update(ref(db, `rooms/${roomCode}`), { [`taxState/${target}`]: selectedValues });
