@@ -565,7 +565,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
             </div>
             
             <div className="center-table">
-              <div className="center-cards" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <div className="center-cards">
                 {centerCards ? (
                   centerCards.cards.map((num, idx) => (
                     <Card key={idx} number={num} name={CARD_NAMES[num]} isPlayable={false} />
