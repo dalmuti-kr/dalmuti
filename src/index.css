@@ -175,7 +175,7 @@ h1, h2, h3 {
 }
 
 .opponent-rank {
-  font-size: 1.2rem;
+  font-size: 0.9rem;
   margin-bottom: 0.2rem;
 }
 
@@ -619,7 +619,7 @@ h1, h2, h3 {
     padding: 0.4rem;
   }
   .opponent-rank {
-    font-size: 1.1rem;
+    font-size: 0.9rem;
   }
   .opponent-name {
     font-size: 0.9rem;
