@@ -3,6 +3,7 @@ import './index.css';
 import { db } from './firebase'; 
 import { ref, set, get, child } from 'firebase/database';
 import GameBoard from './components/GameBoard';
+import HistoryModal from './components/HistoryModal';
 
 function App() {
   const [nickname, setNickname] = useState('');
@@ -10,6 +11,11 @@ function App() {
   const [isJoined, setIsJoined] = useState(false);
   const [error, setError] = useState('');
   const [isChecking, setIsChecking] = useState(true);
+
+  // 모달 상태
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [modalPassword, setModalPassword] = useState('');
 
   useEffect(() => {
     const checkReconnect = async () => {
@@ -60,20 +66,26 @@ function App() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
-  const createRoom = async () => {
+  const handleCreateRoomClick = () => {
     if (!nickname) {
       setError('닉네임을 입력해주세요.');
       return;
     }
-    
+    setError('');
+    setModalPassword('');
+    setShowCreateModal(true);
+  };
+
+  const confirmCreateRoom = async () => {
     const requiredPassword = import.meta.env.VITE_ROOM_PASSWORD || 'dalmuti';
-    const pwd = window.prompt('방 생성을 위한 비밀번호를 입력하세요:');
     
-    if (pwd !== requiredPassword) {
+    if (modalPassword !== requiredPassword) {
       setError('비밀번호가 일치하지 않습니다.');
+      setShowCreateModal(false);
       return;
     }
 
+    setShowCreateModal(false);
     const code = generateRoomCode();
     try {
       const roomRef = ref(db, `rooms/${code}`);
@@ -91,6 +103,12 @@ function App() {
       setError('방 생성에 실패했습니다. Firebase 설정을 확인해주세요.');
       console.error(err);
     }
+  };
+
+  const handleHistoryClick = () => {
+    setError('');
+    setModalPassword('');
+    setShowHistoryModal(true);
   };
 
   const joinRoom = async () => {
@@ -164,7 +182,7 @@ function App() {
           />
         </div>
         
-        <button className="btn" onClick={createRoom}>새로운 방 만들기</button>
+        <button className="btn" onClick={handleCreateRoomClick}>새로운 방 만들기</button>
         
         <div className="divider">또는</div>
         
@@ -182,7 +200,42 @@ function App() {
         </div>
         
         <button className="btn btn-secondary" onClick={joinRoom}>방 입장하기</button>
+
+        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+          <button className="btn btn-secondary" style={{ backgroundColor: 'transparent', border: '1px solid var(--border-color)', fontSize: '0.8rem', padding: '0.5rem' }} onClick={handleHistoryClick}>
+            📜 전체 과거 기록 조회
+          </button>
+        </div>
       </div>
+
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginBottom: '1rem', color: 'var(--text-color)' }}>방 생성 비밀번호</h3>
+            <input
+              type="password"
+              className="input"
+              placeholder="비밀번호 입력"
+              value={modalPassword}
+              onChange={(e) => setModalPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && confirmCreateRoom()}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+              <button className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>취소</button>
+              <button className="btn" onClick={confirmCreateRoom}>확인</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHistoryModal && (
+        <HistoryModal 
+          onClose={() => setShowHistoryModal(false)} 
+          password={modalPassword} 
+          setPassword={setModalPassword}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Card from './Card';
 import { db } from '../firebase';
-import { ref, onValue, update } from 'firebase/database';
+import { ref, onValue, update, push } from 'firebase/database';
 import { generateDeck, shuffleDeck, distributeCards, validatePlay, getNextPlayer } from '../gameLogic';
 
 export const CARD_NAMES = {
@@ -63,7 +63,9 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                status: 'playing',
                currentTurn: newRanks[0],
                ranks: newRanks,
-               taxState: null
+               taxState: null,
+               'currentRoundLog/revolution': taxState.revolution,
+               'currentRoundLog/revolutionBy': taxState.revolutionBy
              });
            }, 4000);
         }
@@ -115,6 +117,8 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
           status: 'playing',
           currentTurn: ranks[0],
           taxState: null,
+          'currentRoundLog/taxes/dalmutiCards': taxState.dalmutiCards,
+          'currentRoundLog/taxes/nobleCards': taxState.nobleCards,
           [`players/${dalmutiName}/hand`]: dalmutiHand,
           [`players/${nobleName}/hand`]: nobleHand,
           [`players/${lesserPeasantName}/hand`]: lesserPeasantHand,
@@ -155,12 +159,22 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     
     if (isFirstGame) {
       updates.currentTurn = startPlayer;
+      updates.currentRoundLog = {
+        roomCode,
+        initialRanks: playerNames
+      };
     } else {
       updates.taxState = {
         dalmutiCards: null,
         nobleCards: null,
         revolution: false,
         revolutionBy: null
+      };
+      updates.currentRoundLog = {
+        roomCode,
+        initialRanks: roomData.ranks,
+        taxes: null,
+        revolution: null
       };
     }
     
@@ -228,6 +242,17 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       if (activePlayers.length === 1) nextFinished.push(activePlayers[0]);
       nextUpdates.status = 'round_over';
       nextUpdates.ranks = nextFinished;
+      
+      // 히스토리 전역 노드에 푸시 (방장인 경우에만 1번 저장하도록 함, 단 playCards는 본인 턴일 때만 불림. 마지막 플레이어가 낼 때 방장 아닐 수 있으므로 방장 제한 없이 실행하되, Firebase push 특성상 마지막 카드 낸 사람이 기록함)
+      if (roomData.currentRoundLog) {
+         const historyRef = ref(db, 'history');
+         const log = { 
+           ...roomData.currentRoundLog, 
+           finalRanks: nextFinished, 
+           timestamp: Date.now() 
+         };
+         push(historyRef, log);
+      }
     } else {
       nextUpdates.currentTurn = getNextPlayer(nickname, playerNames, [], nextFinished);
     }
