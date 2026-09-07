@@ -213,10 +213,9 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
         return; 
       }
       
-      // 스마트 자동 선택 로직
       if (roomData.status === 'playing' && centerCards && centerCards.count > 0 && clickedCardValue !== 13 && currentNormalCards.length === 0) {
         const requiredCount = centerCards.count;
-        const allIndicesOfThisCard = myHand.map((val, i) => val === clickedCardValue ? i : -1).filter(i => i !== -1 && !selectedCards.includes(i));
+        const allIndicesOfThisCard = myHand.map((val, i) => val === clickedCardValue ? i : -1).filter(i => i !== -1 && !selectedCards.includes(i) && i !== idx);
         
         if (allIndicesOfThisCard.length + 1 >= requiredCount) {
           const needed = requiredCount - 1;
@@ -415,7 +414,9 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
         <button className="btn btn-secondary" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={onLeave}>나가기</button>
       </div>
       
-      <p className="philosophy-text" style={{ textAlign: 'center', marginBottom: '1rem' }}>Das Leben ist ungerecht</p>
+      {roomData.status === 'waiting' && (
+        <p className="philosophy-text" style={{ textAlign: 'center', marginBottom: '1rem' }}>Das Leben ist ungerecht</p>
+      )}
 
       {roomData.status === 'waiting' && (
         <div className="waiting-room">
@@ -564,7 +565,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
             </div>
             
             <div className="center-table">
-              <div className="center-cards" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+              <div className="center-cards" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                 {centerCards ? (
                   centerCards.cards.map((num, idx) => (
                     <Card key={idx} number={num} name={CARD_NAMES[num]} isPlayable={false} />
@@ -573,21 +574,21 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                   <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>테이블이 비어있습니다.</p>
                 )}
               </div>
-              {centerCards && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>마지막으로 낸 사람: {roomData.lastPlayedBy}</p>}
+              {centerCards && <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0' }}>마지막으로 낸 사람: {roomData.lastPlayedBy}</p>}
             </div>
           </div>
           
           <div className="my-hand-container">
-            <div className="turn-indicator" style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-color)' : 'var(--text-muted)' }}>
+            <div className="turn-indicator" style={{ marginBottom: '0.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-color)' : 'var(--text-muted)' }}>
               {isFinished ? '🎉 모든 카드를 털었습니다! 구경 중...' : (isMyTurn ? '👉 내 턴입니다!' : `⏳ ${currentTurnPlayer}의 턴을 기다리는 중...`)}
             </div>
             
-            <div className="validation-message" style={{ height: '20px', marginBottom: '0.5rem', color: isSelectionValid ? 'var(--accent-color)' : 'var(--danger-color)', fontSize: '0.9rem', fontWeight: 'bold' }}>
+            <div className="validation-message" style={{ height: '20px', marginBottom: '0.2rem', color: isSelectionValid ? 'var(--accent-color)' : 'var(--danger-color)', fontSize: '0.9rem', fontWeight: 'bold' }}>
               {isMyTurn && !isFinished ? validationMessage : ''}
             </div>
 
             {!isFinished && (
-              <div className="staging-area" style={{ minHeight: '160px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '1rem', border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '1rem', background: 'rgba(0,0,0,0.2)' }}>
+              <div className="staging-area" style={{ minHeight: '100px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '0.5rem', border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '0.5rem', background: 'rgba(0,0,0,0.2)' }}>
                 {stagedIndices.length === 0 ? (
                   <p style={{ color: 'var(--text-muted)' }}>제출할 카드를 터치해서 올리세요</p>
                 ) : (
