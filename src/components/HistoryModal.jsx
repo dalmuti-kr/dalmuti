@@ -34,11 +34,11 @@ export default function HistoryModal({ onClose, password, setPassword }) {
   };
 
   const getRankName = (idx, total) => {
-    if (idx === 0) return '👑 대달무티';
-    if (idx === 1) return '💎 소달무티';
-    if (idx === total - 1) return '🧹 대농노';
-    if (idx === total - 2) return '⛏️ 소농노';
-    return '💼 상인';
+    if (idx === 0) return '👑 왕';
+    if (idx === 1) return '💎 귀족';
+    if (idx === 2) return '💰 상인';
+    if (idx === total - 1) return '⛏️ 노예';
+    return '🌾 평민';
   };
 
   return (

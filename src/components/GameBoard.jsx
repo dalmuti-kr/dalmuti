@@ -369,13 +369,13 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   const orderedPlayers = roomData.ranks || Object.keys(players);
 
   const getRankEmoji = (playerName) => {
-    if (!roomData.ranks) return '🎪';
+    if (!roomData.ranks) return '-';
     const idx = roomData.ranks.indexOf(playerName);
     if (idx === 0) return '👑 왕';
     if (idx === 1) return '💎 귀족';
-    if (idx === roomData.ranks.length - 1) return '🧹 노예';
-    if (idx === roomData.ranks.length - 2) return '⛏️ 평민';
-    return '💼 상인';
+    if (idx === 2) return '💰 상인';
+    if (idx === roomData.ranks.length - 1) return '⛏️ 노예';
+    return '🌾 평민';
   };
 
   const renderOpponent = (oppName) => {
@@ -396,6 +396,17 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   // 카드 분리 렌더링을 위한 인덱스 계산
   const stagedIndices = selectedCards;
   const unselectedIndices = myHand.map((_, i) => i).filter(i => !selectedCards.includes(i));
+  
+  const groupedUnselected = [];
+  unselectedIndices.forEach(idx => {
+    const num = myHand[idx];
+    const existing = groupedUnselected.find(g => g.num === num);
+    if (existing) {
+      existing.indices.push(idx);
+    } else {
+      groupedUnselected.push({ num, indices: [idx] });
+    }
+  });
 
   return (
     <div className="game-board">
@@ -491,15 +502,16 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               
               <div className="hand-cards-container">
                 <div className="hand-cards tax-hand-cards">
-                  {unselectedIndices.map((idx, i) => {
-                    const num = myHand[idx];
-                    const isSameAsPrev = i > 0 && myHand[unselectedIndices[i-1]] === num;
+                  {groupedUnselected.map((group, i) => {
+                    const { num, indices } = group;
+                    const idx = indices[0];
+                    const count = indices.length;
                     const isDimmed = selectedCards.length > 0 && selectedCards[0] !== idx && myHand[selectedCards[0]] !== num && num !== 13;
                     return (
                       <div 
-                        key={`tax-hand-${idx}`} 
+                        key={`tax-hand-${num}`} 
                         className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''}`}
-                        style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
+                        style={{ marginLeft: i > 0 ? '5px' : '0' }}
                       >
                         <Card 
                           number={num} 
@@ -510,6 +522,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                             handleCardClick(idx);
                           }}
                           isPlayable={(!roomData.taxState?.dalmutiCards && isDalmuti) || (!roomData.taxState?.nobleCards && isNoble)}
+                          count={count}
                         />
                       </div>
                     );
@@ -619,15 +632,16 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
             
             <div className="hand-cards-container">
               <div className="hand-cards playing-hand-cards">
-                {unselectedIndices.map((idx, i) => {
-                  const num = myHand[idx];
-                  const isSameAsPrev = i > 0 && myHand[unselectedIndices[i-1]] === num;
+                {groupedUnselected.map((group, i) => {
+                  const { num, indices } = group;
+                  const idx = indices[0];
+                  const count = indices.length;
                   const isDimmed = getIsCardDimmed(num);
                   return (
                     <div 
-                      key={`hand-${idx}`} 
+                      key={`grouped-hand-${num}`} 
                       className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''} ${isCardJesterGlow(num) ? 'jester-glow' : ''}`} 
-                      style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
+                      style={{ marginLeft: i > 0 ? '5px' : '0' }}
                     >
                       <Card 
                         number={num} 
@@ -638,6 +652,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                           handleCardClick(idx);
                         }}
                         isPlayable={!isFinished}
+                        count={count}
                       />
                     </div>
                   );
