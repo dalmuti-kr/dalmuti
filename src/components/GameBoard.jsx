@@ -507,7 +507,8 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                     const { num, indices } = group;
                     const idx = indices[0];
                     const count = indices.length;
-                    const isDimmed = selectedCards.length > 0 && selectedCards[0] !== idx && myHand[selectedCards[0]] !== num && num !== 13;
+                    const maxAllowed = isDalmuti ? 2 : (isNoble ? 1 : 0);
+                    const isDimmed = selectedCards.length >= maxAllowed;
                     return (
                       <div 
                         key={`tax-hand-${num}`} 
