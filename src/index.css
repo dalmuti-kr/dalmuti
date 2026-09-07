@@ -19,6 +19,10 @@
   padding: 0;
 }
 
+html {
+  font-size: 18px;
+}
+
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
@@ -171,7 +175,7 @@ h1, h2, h3 {
 }
 
 .opponent-rank {
-  font-size: 1.8rem;
+  font-size: 1.2rem;
   margin-bottom: 0.2rem;
 }
 
@@ -581,6 +585,9 @@ h1, h2, h3 {
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
+  html {
+    font-size: 16px;
+  }
   .game-board {
     padding: 0.5rem;
   }
@@ -612,7 +619,7 @@ h1, h2, h3 {
     padding: 0.4rem;
   }
   .opponent-rank {
-    font-size: 1.4rem;
+    font-size: 1.1rem;
   }
   .opponent-name {
     font-size: 0.9rem;

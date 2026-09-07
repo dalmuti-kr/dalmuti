@@ -369,12 +369,13 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
 
   const getRankEmoji = (playerName) => {
     if (!roomData.ranks) return '-';
+    const total = roomData.ranks.length;
     const idx = roomData.ranks.indexOf(playerName);
     if (idx === 0) return '👑 왕';
     if (idx === 1) return '💎 귀족';
-    if (idx === 2) return '💰 상인';
-    if (idx === roomData.ranks.length - 1) return '⛏️ 노예';
-    return '🌾 평민';
+    if (idx === total - 1) return '⛏️ 노예';
+    if (idx === total - 2) return '🌾 평민';
+    return '💰 상인';
   };
 
   const renderOpponent = (oppName) => {
