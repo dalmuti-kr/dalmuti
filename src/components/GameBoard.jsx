@@ -467,7 +467,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
             </div>
           ) : (
             <>
-              <h2 style={{ marginBottom: '1.5rem', color: 'var(--accent-color)' }}>⚖️ 세금 징수 단계 ⚖️</h2>
+              <h2 style={{ marginBottom: '1.5rem', color: 'var(--accent-color)' }}>⚖️ 세금 징수 ⚖️</h2>
               
               {hasRevolution && (
                 <button className="btn" style={{ backgroundColor: 'var(--danger-color)', borderColor: 'var(--danger-color)', marginBottom: '2rem' }} onClick={declareRevolution}>

@@ -570,6 +570,15 @@ h1, h2, h3 {
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.tax-hand-cards {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 140px;
+  align-items: center;
+  overflow-x: hidden;
+  white-space: normal;
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
   .game-board {
