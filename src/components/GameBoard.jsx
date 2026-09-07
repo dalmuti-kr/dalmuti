@@ -244,8 +244,8 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       nextFinished.push(nickname);
     }
     
-    const playerNames = Object.keys(players);
-    const activePlayers = playerNames.filter(p => !nextFinished.includes(p));
+    const orderedPlayers = roomData.ranks || Object.keys(players);
+    const activePlayers = orderedPlayers.filter(p => !nextFinished.includes(p));
     
     let nextUpdates = {
       centerCards: {
@@ -275,7 +275,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
          push(historyRef, log);
       }
     } else {
-      nextUpdates.currentTurn = getNextPlayer(nickname, playerNames, [], nextFinished);
+      nextUpdates.currentTurn = getNextPlayer(nickname, orderedPlayers, [], nextFinished);
     }
     
     update(ref(db, `rooms/${roomCode}`), nextUpdates);
@@ -283,9 +283,9 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   };
 
   const passTurn = () => {
-    const playerNames = Object.keys(players);
+    const orderedPlayers = roomData.ranks || Object.keys(players);
     const passed = roomData.passedPlayers || [];
-    const activeCount = playerNames.filter(p => !finishedPlayers.includes(p)).length;
+    const activeCount = orderedPlayers.filter(p => !finishedPlayers.includes(p)).length;
     
     const newPassed = [...passed, nickname];
     let nextUpdates = { passedPlayers: newPassed };
@@ -294,14 +294,14 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       const lastPlayer = roomData.lastPlayedBy;
       let nextLead = lastPlayer;
       if (finishedPlayers.includes(lastPlayer)) {
-         nextLead = getNextPlayer(lastPlayer, playerNames, [], finishedPlayers);
+         nextLead = getNextPlayer(lastPlayer, orderedPlayers, [], finishedPlayers);
       }
       nextUpdates.centerCards = null;
       nextUpdates.passedPlayers = [];
       nextUpdates.currentTurn = nextLead;
       nextUpdates.lastPlayedBy = null;
     } else {
-      nextUpdates.currentTurn = getNextPlayer(nickname, playerNames, newPassed, finishedPlayers);
+      nextUpdates.currentTurn = getNextPlayer(nickname, orderedPlayers, newPassed, finishedPlayers);
     }
     
     update(ref(db, `rooms/${roomCode}`), nextUpdates);
