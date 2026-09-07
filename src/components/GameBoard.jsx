@@ -53,7 +53,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
 
       if (taxState?.revolution) {
         if (!taxState.processedRevolution) {
-           update(ref(db, `rooms/${roomCode}/taxState/processedRevolution`), true);
+           update(ref(db, `rooms/${roomCode}`), { 'taxState/processedRevolution': true });
            setTimeout(() => {
              let newRanks = [...ranks];
              if (taxState.revolution === 'greater') {
@@ -208,8 +208,8 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       const currentSelectedValues = selectedCards.map(i => myHand[i]);
       const currentNormalCards = currentSelectedValues.filter(c => c !== 13);
       
-      // 교차 선택 방지 (조커 제외)
-      if (currentNormalCards.length > 0 && clickedCardValue !== 13 && clickedCardValue !== currentNormalCards[0]) {
+      // 교차 선택 방지 (조커 제외, 단 세금 징수 단계는 예외)
+      if (roomData.status !== 'taxing' && currentNormalCards.length > 0 && clickedCardValue !== 13 && clickedCardValue !== currentNormalCards[0]) {
         return; 
       }
       
@@ -327,7 +327,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     }
     const selectedValues = selectedCards.map(idx => myHand[idx]);
     const target = isDalmuti ? 'dalmutiCards' : 'nobleCards';
-    update(ref(db, `rooms/${roomCode}/taxState/${target}`), selectedValues);
+    update(ref(db, `rooms/${roomCode}`), { [`taxState/${target}`]: selectedValues });
     setSelectedCards([]);
   };
 
@@ -344,7 +344,9 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       : `불가: ${currentValidation.reason}`;
 
   const getIsCardDimmed = (num) => {
-    if (isFinished || roomData.status !== 'playing') return false;
+    if (isFinished) return false;
+    if (roomData.status === 'taxing') return false; // 세금 단계에선 딤 처리 안함
+    if (roomData.status !== 'playing') return false;
     if (!isMyTurn) return true; // 내 턴이 아니면 모두 딤(Dim) 처리
     
     // 이미 선택한 카드가 있다면, 다른 계급 카드 딤 처리
@@ -365,7 +367,6 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
 
   // 상대방 플레이어 배치 계산 (계급 순 가로 배열)
   const orderedPlayers = roomData.ranks || Object.keys(players);
-  const opponents = orderedPlayers.filter(p => p !== nickname);
 
   const getRankEmoji = (playerName) => {
     if (!roomData.ranks) return '👤';
@@ -378,14 +379,15 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   };
 
   const renderOpponent = (oppName) => {
+    const isMe = oppName === nickname;
     const isOppTurn = oppName === currentTurnPlayer;
     const isOppFinished = finishedPlayers.includes(oppName);
     const oppHandCount = roomData.players[oppName]?.hand?.length || 0;
     
     return (
-      <div key={oppName} className={`opponent-avatar ${isOppTurn && !isOppFinished ? 'current-turn' : ''} ${isOppFinished ? 'finished' : ''}`}>
+      <div key={oppName} className={`opponent-avatar ${isMe ? 'is-me' : ''} ${isOppTurn && !isOppFinished ? 'current-turn' : ''} ${isOppFinished ? 'finished' : ''}`} style={isMe ? { borderColor: 'var(--accent-color)', borderWidth: '2px' } : {}}>
         <div className="opponent-rank">{getRankEmoji(oppName)}</div>
-        <div className="opponent-name">{oppName}</div>
+        <div className="opponent-name">{isMe ? `[나] ${oppName}` : oppName}</div>
         <div className="opponent-cards">{isOppFinished ? '🎉 통과' : `🎴 ${oppHandCount}장`}</div>
       </div>
     );
@@ -394,6 +396,17 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   // 카드 분리 렌더링을 위한 인덱스 계산
   const stagedIndices = selectedCards;
   const unselectedIndices = myHand.map((_, i) => i).filter(i => !selectedCards.includes(i));
+  
+  const groupedUnselected = [];
+  unselectedIndices.forEach(idx => {
+    const num = myHand[idx];
+    const existing = groupedUnselected.find(g => g.num === num);
+    if (existing) {
+      existing.indices.push(idx);
+    } else {
+      groupedUnselected.push({ num, indices: [idx] });
+    }
+  });
 
   return (
     <div className="game-board">
@@ -453,7 +466,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
             </div>
           ) : (
             <>
-              <h2 style={{ marginBottom: '1.5rem', color: 'var(--accent-color)' }}>⚖️ 세금 징수 시간 ⚖️</h2>
+              <h2 style={{ marginBottom: '1.5rem', color: 'var(--accent-color)' }}>⚖️ 세금 징수 단계 ⚖️</h2>
               
               {hasRevolution && (
                 <button className="btn" style={{ backgroundColor: 'var(--danger-color)', borderColor: 'var(--danger-color)', marginBottom: '2rem' }} onClick={declareRevolution}>
@@ -488,15 +501,16 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               )}
               
               <div className="hand-cards" style={{ marginTop: '2rem' }}>
-                {unselectedIndices.map((idx, i) => {
-                  const num = myHand[idx];
-                  const isSameAsPrev = i > 0 && myHand[unselectedIndices[i-1]] === num;
+                {groupedUnselected.map((group, i) => {
+                  const { num, indices } = group;
+                  const idx = indices[0];
+                  const count = indices.length;
                   const isDimmed = selectedCards.length > 0 && selectedCards[0] !== idx && myHand[selectedCards[0]] !== num && num !== 13;
                   return (
                     <div 
-                      key={`tax-hand-${idx}`} 
+                      key={`tax-hand-${num}`} 
                       className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''}`}
-                      style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
+                      style={{ marginLeft: i > 0 ? '-30px' : '0' }}
                     >
                       <Card 
                         number={num} 
@@ -507,6 +521,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                           handleCardClick(idx);
                         }}
                         isPlayable={(!roomData.taxState?.dalmutiCards && isDalmuti) || (!roomData.taxState?.nobleCards && isNoble)}
+                        count={count}
                       />
                     </div>
                   );
@@ -544,7 +559,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
         <div className="play-area">
           <div className="table-container">
             <div className="opponents-row">
-              {opponents.map(renderOpponent)}
+              {orderedPlayers.map(renderOpponent)}
             </div>
             
             <div className="center-table">
@@ -570,33 +585,35 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               {isMyTurn && !isFinished ? validationMessage : ''}
             </div>
 
-            <div className="staging-area" style={{ minHeight: '160px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '1rem', border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '1rem', background: 'rgba(0,0,0,0.2)' }}>
-              {stagedIndices.length === 0 ? (
-                <p style={{ color: 'var(--text-muted)' }}>제출할 카드를 터치해서 올리세요</p>
-              ) : (
-                <div style={{ display: 'flex' }}>
-                  {stagedIndices.map((idx, i) => {
-                    const num = myHand[idx];
-                    const isSameAsPrev = i > 0 && myHand[stagedIndices[i-1]] === num;
-                    return (
-                      <div 
-                        key={`staged-${idx}`} 
-                        className="hand-card-wrapper" 
-                        style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
-                      >
-                        <Card 
-                          number={num} 
-                          name={CARD_NAMES[num]} 
-                          isSelected={false}
-                          onClick={() => handleCardClick(idx)}
-                          isPlayable={true}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            {!isFinished && (
+              <div className="staging-area" style={{ minHeight: '160px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '1rem', border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '1rem', background: 'rgba(0,0,0,0.2)' }}>
+                {stagedIndices.length === 0 ? (
+                  <p style={{ color: 'var(--text-muted)' }}>제출할 카드를 터치해서 올리세요</p>
+                ) : (
+                  <div style={{ display: 'flex' }}>
+                    {stagedIndices.map((idx, i) => {
+                      const num = myHand[idx];
+                      const isSameAsPrev = i > 0 && myHand[stagedIndices[i-1]] === num;
+                      return (
+                        <div 
+                          key={`staged-${idx}`} 
+                          className="hand-card-wrapper" 
+                          style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
+                        >
+                          <Card 
+                            number={num} 
+                            name={CARD_NAMES[num]} 
+                            isSelected={false}
+                            onClick={() => handleCardClick(idx)}
+                            isPlayable={true}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {!isFinished && (
               <div className="hand-actions" style={{ opacity: isMyTurn ? 1 : 0.5 }}>
@@ -612,15 +629,16 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
             )}
             
             <div className="hand-cards">
-              {unselectedIndices.map((idx, i) => {
-                const num = myHand[idx];
-                const isSameAsPrev = i > 0 && myHand[unselectedIndices[i-1]] === num;
+              {groupedUnselected.map((group, i) => {
+                const { num, indices } = group;
+                const idx = indices[0];
+                const count = indices.length;
                 const isDimmed = getIsCardDimmed(num);
                 return (
                   <div 
-                    key={`hand-${idx}`} 
+                    key={`grouped-hand-${num}`} 
                     className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''} ${isCardJesterGlow(num) ? 'jester-glow' : ''}`} 
-                    style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
+                    style={{ marginLeft: i > 0 ? '-30px' : '0' }}
                   >
                     <Card 
                       number={num} 
@@ -631,6 +649,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                         handleCardClick(idx);
                       }}
                       isPlayable={!isFinished}
+                      count={count}
                     />
                   </div>
                 );

@@ -14,10 +14,12 @@ export function generateDeck() {
 }
 
 export function shuffleDeck(deck) {
-  const newDeck = [...deck];
-  for (let i = newDeck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+  let newDeck = [...deck];
+  for (let round = 0; round < 3; round++) {
+    for (let i = newDeck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+    }
   }
   return newDeck;
 }

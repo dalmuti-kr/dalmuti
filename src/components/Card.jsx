@@ -1,4 +1,4 @@
-export default function Card({ number, name, isSelected, onClick, isPlayable = true }) {
+export default function Card({ number, name, isSelected, onClick, isPlayable = true, count = 1 }) {
   const isJester = number === 13;
   const displayNum = isJester ? 'J' : number;
   const mainName = name.split(' (')[0];
@@ -16,6 +16,11 @@ export default function Card({ number, name, isSelected, onClick, isPlayable = t
       onClick={isPlayable ? onClick : undefined}
       style={bgStyle}
     >
+      {count > 1 && (
+        <div className="card-count-badge">
+          x{count}
+        </div>
+      )}
       <div className="card-overlay-top">
         <span className="card-number-text">{displayNum}</span>
       </div>
