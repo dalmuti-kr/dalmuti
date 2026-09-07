@@ -49,6 +49,17 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     return () => unsubscribe();
   }, [roomCode, onLeave]);
 
+  // 자동 턴 정리 (네트워크 지연 등으로 인해 내가 낸 카드가 한 바퀴 돌아 내 차례가 되었음에도 테이블이 안 치워진 경우)
+  useEffect(() => {
+    if (roomData?.status === 'playing' && roomData.currentTurn === nickname && roomData.lastPlayedBy === nickname && roomData.centerCards) {
+      update(ref(db, `rooms/${roomCode}`), {
+        centerCards: null,
+        passedPlayers: [],
+        lastPlayedBy: null
+      });
+    }
+  }, [roomData?.status, roomData?.currentTurn, roomData?.lastPlayedBy, roomData?.centerCards, nickname, roomCode]);
+
   // 세금 교환 및 혁명 처리 (방장만 계산하여 업데이트)
   useEffect(() => {
     if (roomData?.status === 'taxing' && roomData.players && roomData.players[nickname]?.isHost) {
@@ -315,8 +326,10 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     const newPassed = [...passed, nickname];
     let nextUpdates = { passedPlayers: newPassed };
     
-    if (newPassed.length >= activeCount - 1) {
-      const lastPlayer = roomData.lastPlayedBy;
+    const lastPlayer = roomData.lastPlayedBy;
+    const requiredPasses = finishedPlayers.includes(lastPlayer) ? activeCount : activeCount - 1;
+    
+    if (newPassed.length >= requiredPasses) {
       let nextLead = lastPlayer;
       if (finishedPlayers.includes(lastPlayer)) {
          nextLead = getNextPlayer(lastPlayer, orderedPlayers, [], finishedPlayers);
