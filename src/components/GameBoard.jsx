@@ -369,7 +369,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   const orderedPlayers = roomData.ranks || Object.keys(players);
 
   const getRankEmoji = (playerName) => {
-    if (!roomData.ranks) return '👤';
+    if (!roomData.ranks) return '🎪';
     const idx = roomData.ranks.indexOf(playerName);
     if (idx === 0) return '👑 왕';
     if (idx === 1) return '💎 귀족';
@@ -388,7 +388,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
       <div key={oppName} className={`opponent-avatar ${isMe ? 'is-me' : ''} ${isOppTurn && !isOppFinished ? 'current-turn' : ''} ${isOppFinished ? 'finished' : ''}`} style={isMe ? { borderColor: 'var(--accent-color)', borderWidth: '2px' } : {}}>
         <div className="opponent-rank">{getRankEmoji(oppName)}</div>
         <div className="opponent-name">{isMe ? `[나] ${oppName}` : oppName}</div>
-        <div className="opponent-cards">{isOppFinished ? '🎉 통과' : `🎴 ${oppHandCount}장`}</div>
+        <div className="opponent-cards">{isOppFinished ? '🎉 통과' : `🃏 ${oppHandCount}장`}</div>
       </div>
     );
   };
@@ -396,17 +396,6 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
   // 카드 분리 렌더링을 위한 인덱스 계산
   const stagedIndices = selectedCards;
   const unselectedIndices = myHand.map((_, i) => i).filter(i => !selectedCards.includes(i));
-  
-  const groupedUnselected = [];
-  unselectedIndices.forEach(idx => {
-    const num = myHand[idx];
-    const existing = groupedUnselected.find(g => g.num === num);
-    if (existing) {
-      existing.indices.push(idx);
-    } else {
-      groupedUnselected.push({ num, indices: [idx] });
-    }
-  });
 
   return (
     <div className="game-board">
@@ -500,32 +489,32 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
                 </div>
               )}
               
-              <div className="hand-cards" style={{ marginTop: '2rem' }}>
-                {groupedUnselected.map((group, i) => {
-                  const { num, indices } = group;
-                  const idx = indices[0];
-                  const count = indices.length;
-                  const isDimmed = selectedCards.length > 0 && selectedCards[0] !== idx && myHand[selectedCards[0]] !== num && num !== 13;
-                  return (
-                    <div 
-                      key={`tax-hand-${num}`} 
-                      className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''}`}
-                      style={{ marginLeft: i > 0 ? '-30px' : '0' }}
-                    >
-                      <Card 
-                        number={num} 
-                        name={CARD_NAMES[num]} 
-                        isSelected={false}
-                        onClick={() => {
-                          if (isDimmed) return;
-                          handleCardClick(idx);
-                        }}
-                        isPlayable={(!roomData.taxState?.dalmutiCards && isDalmuti) || (!roomData.taxState?.nobleCards && isNoble)}
-                        count={count}
-                      />
-                    </div>
-                  );
-                })}
+              <div className="hand-cards-container">
+                <div className="hand-cards tax-hand-cards">
+                  {unselectedIndices.map((idx, i) => {
+                    const num = myHand[idx];
+                    const isSameAsPrev = i > 0 && myHand[unselectedIndices[i-1]] === num;
+                    const isDimmed = selectedCards.length > 0 && selectedCards[0] !== idx && myHand[selectedCards[0]] !== num && num !== 13;
+                    return (
+                      <div 
+                        key={`tax-hand-${idx}`} 
+                        className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''}`}
+                        style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
+                      >
+                        <Card 
+                          number={num} 
+                          name={CARD_NAMES[num]} 
+                          isSelected={false}
+                          onClick={() => {
+                            if (isDimmed) return;
+                            handleCardClick(idx);
+                          }}
+                          isPlayable={(!roomData.taxState?.dalmutiCards && isDalmuti) || (!roomData.taxState?.nobleCards && isNoble)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {selectedCards.length > 0 && (
@@ -628,32 +617,32 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               </div>
             )}
             
-            <div className="hand-cards">
-              {groupedUnselected.map((group, i) => {
-                const { num, indices } = group;
-                const idx = indices[0];
-                const count = indices.length;
-                const isDimmed = getIsCardDimmed(num);
-                return (
-                  <div 
-                    key={`grouped-hand-${num}`} 
-                    className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''} ${isCardJesterGlow(num) ? 'jester-glow' : ''}`} 
-                    style={{ marginLeft: i > 0 ? '-30px' : '0' }}
-                  >
-                    <Card 
-                      number={num} 
-                      name={CARD_NAMES[num]} 
-                      isSelected={false}
-                      onClick={() => {
-                        if (isDimmed) return;
-                        handleCardClick(idx);
-                      }}
-                      isPlayable={!isFinished}
-                      count={count}
-                    />
-                  </div>
-                );
-              })}
+            <div className="hand-cards-container">
+              <div className="hand-cards playing-hand-cards">
+                {unselectedIndices.map((idx, i) => {
+                  const num = myHand[idx];
+                  const isSameAsPrev = i > 0 && myHand[unselectedIndices[i-1]] === num;
+                  const isDimmed = getIsCardDimmed(num);
+                  return (
+                    <div 
+                      key={`hand-${idx}`} 
+                      className={`hand-card-wrapper ${isDimmed ? 'dimmed' : ''} ${isCardJesterGlow(num) ? 'jester-glow' : ''}`} 
+                      style={{ marginLeft: isSameAsPrev ? '-40px' : '5px' }}
+                    >
+                      <Card 
+                        number={num} 
+                        name={CARD_NAMES[num]} 
+                        isSelected={false}
+                        onClick={() => {
+                          if (isDimmed) return;
+                          handleCardClick(idx);
+                        }}
+                        isPlayable={!isFinished}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

@@ -129,17 +129,21 @@ h1, h2, h3 {
 .opponents-row {
   display: flex;
   flex-direction: row;
-  justify-content: flex-start;
+  justify-content: safe center;
   align-items: center;
   gap: 1rem;
   overflow-x: auto;
   white-space: nowrap;
   padding: 10px;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  scrollbar-width: thin;
 }
 .opponents-row::-webkit-scrollbar {
-  display: none;
+  height: 8px;
+}
+.opponents-row::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
 }
 
 .center-table {
@@ -532,12 +536,32 @@ h1, h2, h3 {
   min-width: 120px;
 }
 
-.hand-cards {
+.hand-cards-container {
+  width: 100%;
+  max-width: 100%;
   display: flex;
   justify-content: center;
+}
+
+.hand-cards {
+  display: flex;
+  justify-content: flex-start;
   align-items: flex-end;
   height: 150px;
   margin-top: 1rem;
+  overflow-x: auto;
+  padding-bottom: 20px;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.hand-cards::-webkit-scrollbar {
+  height: 8px;
+}
+.hand-cards::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
 }
 
 .hand-card-wrapper {
