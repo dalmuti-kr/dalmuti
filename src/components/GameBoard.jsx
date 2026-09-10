@@ -179,11 +179,13 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
     
     if (isFirstGame) {
       updates.currentTurn = startPlayer;
+      updates.round = 1;
       updates.currentRoundLog = {
         roomCode,
         initialRanks: playerNames
       };
     } else {
+      updates.round = (roomData.round || 1) + 1;
       updates.taxState = {
         dalmutiCards: null,
         nobleCards: null,
@@ -705,15 +707,54 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
           <h2 style={{ marginBottom: '1.5rem', color: 'var(--accent-color)' }}>🎉 라운드 종료! 🎉</h2>
           <h3>최종 계급도</h3>
           <ol style={{ marginTop: '1rem', marginBottom: '2rem', textAlign: 'left', display: 'inline-block' }}>
-            {roomData.ranks && roomData.ranks.map((name, idx) => {
-               let title = '';
-               if (idx === 0) title = '👑 왕';
-               else if (idx === 1) title = '💎 귀족';
-               else if (idx === roomData.ranks.length - 1) title = '🧹 노예';
-               else if (idx === roomData.ranks.length - 2) title = '⛏️ 평민';
-               else title = '상인';
-               return <li key={name} style={{ margin: '0.5rem 0', fontSize: '1.1rem' }}>{title} - <strong>{name}</strong></li>;
-            })}
+             {roomData.ranks && roomData.ranks.map((name, idx) => {
+               const getRankTitle = (i, total) => {
+                 if (i === 0) return '👑 왕';
+                 if (i === 1) return '💎 귀족';
+                 if (i === total - 1) return '🧹 노예';
+                 if (i === total - 2) return '⛏️ 평민';
+                 return '💰 상인';
+               };
+               const title = getRankTitle(idx, roomData.ranks.length);
+               
+               let changeText = '';
+               const oldIdx = roomData.currentRoundLog?.initialRanks ? roomData.currentRoundLog.initialRanks.indexOf(name) : -1;
+               const isFirstGameResult = !roomData.round || roomData.round === 1;
+               
+               if (!isFirstGameResult && oldIdx !== -1) {
+                 const oldTitle = getRankTitle(oldIdx, roomData.ranks.length);
+                 if (oldIdx === idx) {
+                   changeText = `(이전: ${oldTitle} ➡️ 신분 유지)`;
+                 } else if (oldIdx > idx) {
+                   changeText = `(이전: ${oldTitle} ➡️ 신분 상승! 🚀)`;
+                 } else {
+                   changeText = `(이전: ${oldTitle} ➡️ 신분 하락 🔻)`;
+                 }
+               }
+               
+               const isMe = name === nickname;
+               
+               return (
+                 <li 
+                   key={name} 
+                   style={{ 
+                     margin: '0.75rem 0', 
+                     fontSize: '1.1rem',
+                     padding: '0.5rem 1rem',
+                     borderRadius: '8px',
+                     background: isMe ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                     border: isMe ? '1px solid var(--accent-color)' : '1px solid transparent'
+                   }}
+                 >
+                   {title} - <strong>{name}</strong> {isMe && '(나)'}
+                   {changeText && (
+                     <span style={{ fontSize: '0.9rem', color: isMe ? 'var(--text-color)' : 'var(--text-muted)', marginLeft: '0.5rem' }}>
+                       {changeText}
+                     </span>
+                   )}
+                 </li>
+               );
+             })}
           </ol>
           {isHost ? (
             <button className="btn" onClick={startGame}>
