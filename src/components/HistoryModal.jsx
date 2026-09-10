@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { db } from '../firebase';
 import { ref, get } from 'firebase/database';
-import { CARD_NAMES } from './GameBoard';
+import { CARD_NAMES } from '../gameLogic';
 
 export default function HistoryModal({ onClose, password, setPassword }) {
   const [history, setHistory] = useState(null);
@@ -28,7 +28,7 @@ export default function HistoryModal({ onClose, password, setPassword }) {
       }
       setIsAuthenticated(true);
       setError('');
-    } catch (err) {
+    } catch {
       setError('기록을 불러오는데 실패했습니다.');
     }
   };

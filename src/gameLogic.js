@@ -1,5 +1,20 @@
 // src/gameLogic.js
 
+export const CARD_NAMES = {
+  1: '달무티 (Dalmuti)',
+  2: '대주교 (Erzbischof)',
+  3: '시종장 (Hofmarschall)',
+  4: '남작부인 (Baronin)',
+  5: '수녀원장 (Äbtissin)',
+  6: '기사 (Ritter)',
+  7: '재봉사 (Näherin)',
+  8: '석공 (Steinmetz)',
+  9: '요리사 (Köchin)',
+  10: '양치기 (Schafhirtin)',
+  11: '광부 (Bergmann)',
+  12: '농노 (Tagelöhner)',
+  13: '어릿광대 (Narr)'
+};
 export function generateDeck() {
   const deck = [];
   // 1번 카드 1장, 2번 카드 2장 ... 12번 카드 12장

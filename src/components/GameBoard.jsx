@@ -2,23 +2,7 @@ import { useState, useEffect } from 'react';
 import Card from './Card';
 import { db } from '../firebase';
 import { ref, onValue, update, push } from 'firebase/database';
-import { generateDeck, shuffleDeck, distributeCards, validatePlay, getNextPlayer } from '../gameLogic';
-
-export const CARD_NAMES = {
-  1: '달무티 (Dalmuti)',
-  2: '대주교 (Erzbischof)',
-  3: '시종장 (Hofmarschall)',
-  4: '남작부인 (Baronin)',
-  5: '수녀원장 (Äbtissin)',
-  6: '기사 (Ritter)',
-  7: '재봉사 (Näherin)',
-  8: '석공 (Steinmetz)',
-  9: '요리사 (Köchin)',
-  10: '양치기 (Schafhirtin)',
-  11: '광부 (Bergmann)',
-  12: '농노 (Tagelöhner)',
-  13: '어릿광대 (Narr)'
-};
+import { generateDeck, shuffleDeck, distributeCards, validatePlay, getNextPlayer, CARD_NAMES } from '../gameLogic';
 
 export default function GameBoard({ roomCode, nickname, onLeave }) {
   const [roomData, setRoomData] = useState(null);
@@ -162,7 +146,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
         });
       }
     }
-  }, [roomData?.status, roomData?.taxState]);
+  }, [roomData?.status, roomData?.taxState, roomData?.players, roomData?.ranks, nickname, roomCode]);
 
   if (!roomData) return <div className="lobby-container">Loading...</div>;
 
@@ -556,7 +540,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
               
               <div className="hand-cards-container">
                 <div className="hand-cards tax-hand-cards">
-                  {groupedUnselected.map((group, i) => {
+                  {groupedUnselected.map((group) => {
                     const { num, indices } = group;
                     const idx = indices[0];
                     const count = indices.length;
@@ -686,7 +670,7 @@ export default function GameBoard({ roomCode, nickname, onLeave }) {
             
             <div className="hand-cards-container">
               <div className="hand-cards playing-hand-cards">
-                {groupedUnselected.map((group, i) => {
+                {groupedUnselected.map((group) => {
                   const { num, indices } = group;
                   const idx = indices[0];
                   const count = indices.length;
